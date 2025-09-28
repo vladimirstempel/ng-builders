@@ -16,12 +16,12 @@
     "@angular-devkit/architect": "^0.2003.3",
     "@angular-devkit/core": "^20.3.3",
     "@angular/build": "^20.3.3",
-    "esbuild": "^0.25.10"
+    "esbuild": "^0.25.10",
+    "esbuild-plugin-copy": "^2.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
     "copyfiles": "^2.4.1",
-    "esbuild-plugin-copy": "^2.1.1",
     "rimraf": "^6.0.1",
     "tslib": "^2.3.0",
     "typescript": "^5.9.2"
