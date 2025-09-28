@@ -8,6 +8,7 @@ import { JsonObject } from '@angular-devkit/core';
 import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
+import { execSync } from 'node:child_process';
 import * as path from 'node:path';
 import { BUILD_PLUGIN } from './esbuild.pliugins';
 
@@ -90,6 +91,7 @@ async function* buildExtension(
             if (options.watch) {
               esbuildCtx = await esbuild.context(esbuildConfig);
               await esbuildCtx.watch();
+              execSync('tsc --noEmit', { stdio: 'inherit' });
             } else {
               await esbuild.build(esbuildConfig);
             }
