@@ -7,12 +7,19 @@ import {
 import { JsonObject } from '@angular-devkit/core';
 import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
 import * as esbuild from 'esbuild';
+import { copy } from 'esbuild-plugin-copy';
 import * as path from 'node:path';
 
 // Define the options for our custom builder
 interface Options extends JsonObject {
   backgroundScript: string;
   contentScript: string;
+  manifest: string;
+  outputPath: {
+    base: string;
+    browser?: string;
+  },
+  watch: boolean;
 }
 
 export default createBuilder<Options>(buildExtension);
@@ -42,16 +49,11 @@ async function* buildExtension(
 
   for await (const output of buildResults) {
     if (output.success) {
-      const outputPathClass = buildOptions.outputPath as {
-        base: string;
-        browser?: string;
-      };
-
       // 3. Determine the output path
       const outputPath = path.join(
         context.workspaceRoot,
-        outputPathClass.base,
-        outputPathClass.browser ?? ''
+        options.outputPath.base,
+        options.outputPath.browser ?? ''
       );
 
       // 4. Build the background and content scripts using esbuild
@@ -70,6 +72,16 @@ async function* buildExtension(
               platform: 'browser',
               target: 'es2020',
               format: 'iife',
+              plugins: [
+                copy({
+                  resolveFrom: 'cwd',
+                  assets: {
+                    from: [options.manifest],
+                    to: [path.join(outputPath)],
+                  },
+                  watch: options.watch,
+                })
+              ]
             });
             context.logger.info(`Successfully built ${name} script.`);
           } catch (error) {
