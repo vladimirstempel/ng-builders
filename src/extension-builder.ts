@@ -33,9 +33,9 @@ async function* buildExtension(
   const buildTarget = targetFromTargetString(
     context.target.project + ':build:' + context.target.configuration
   );
-  const buildOptions = (await context.getTargetOptions(
+  const buildOptions = Object.assign({}, options, (await context.getTargetOptions(
     buildTarget
-  )) as unknown as ApplicationBuilderOptions;
+  ))) as unknown as ApplicationBuilderOptions;
 
   // 2. Execute the default Angular application builder (esbuild)
   const buildResults = buildApplication(buildOptions, context);
