@@ -5,7 +5,7 @@
   "builders": "builders.json",
   "main": "./extension-builder.js",
   "scripts": {
-    "copy": "copyfiles package.json dist && copyfiles builders.json dist",
+    "copy": "copyfiles package.json dist && copyfiles builders.json dist && copyfiles README.md dist",
     "clean": "rimraf dist",
     "build": "tsc",
     "prebuild": "npm run clean",
