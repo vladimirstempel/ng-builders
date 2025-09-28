@@ -1,0 +1,36 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": true,
+    "sourceMap": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.json"
+  ],
+  "exclude": [
+    "**/*.spec.ts",
+    "node_modules",
+    "dist"
+  ]
+}
