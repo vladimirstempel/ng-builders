@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/schema",
   "type": "object",
   "properties": {
+    "watch": {
+      "type": "boolean",
+      "description": "Rebuild on file changes.",
+      "default": false
+    },
     "backgroundScript": {
       "type": "string",
       "description": "Path to the background script (e.g., src/background.ts)"
