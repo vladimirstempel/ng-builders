@@ -15,6 +15,10 @@
       "type": "string",
       "description": "Path to the content script (e.g., src/content.ts)"
     },
+    "manifest": {
+      "type": "string",
+      "description": "Path to the manifest (e.g., src/manifest.json)"
+    },
     "outputPath": {
       "type": "object",
       "description": "Path to the dist folder (e.g., dist/extension)",
@@ -48,6 +52,7 @@
   "required": [
     "backgroundScript",
     "contentScript",
+    "manifest",
     "outputPath"
   ]
 }
