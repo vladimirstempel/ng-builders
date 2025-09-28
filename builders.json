@@ -1,0 +1,10 @@
+{
+  "$schema": "../node_modules/@angular-devkit/architect/src/builders-schema.json",
+  "builders": {
+    "extension": {
+      "implementation": "./extension-builder.js",
+      "schema": "./schema.json",
+      "description": "Custom builder for Chrome extension"
+    }
+  }
+}
