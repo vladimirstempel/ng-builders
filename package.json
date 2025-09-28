@@ -1,6 +1,6 @@
 {
   "name": "@stempelv/ng-builders",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "Custom builder for Chrome extension",
   "builders": "builders.json",
   "main": "./extension-builder.js",
