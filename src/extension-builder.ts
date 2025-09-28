@@ -9,6 +9,7 @@ import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import * as path from 'node:path';
+import { BUILD_PLUGIN } from './esbuild.pliugins';
 
 // Define the options for our custom builder
 interface Options extends JsonObject {
@@ -64,8 +65,10 @@ async function* buildExtension(
 
       for (const [name, scriptPath] of Object.entries(scriptsToBuild)) {
         if (scriptPath) {
+          let esbuildCtx: esbuild.BuildContext | null = null;
+
           try {
-            await esbuild.build({
+            const esbuildConfig: esbuild.SameShape<esbuild.BuildOptions, esbuild.BuildOptions> = {
               entryPoints: [path.join(context.workspaceRoot, scriptPath)],
               bundle: true,
               outfile: path.join(outputPath, `${name}.js`),
@@ -80,14 +83,24 @@ async function* buildExtension(
                     to: [path.join(outputPath)],
                   },
                   watch: options.watch,
-                })
+                }),
+                BUILD_PLUGIN
               ]
-            });
+            };
+            if (options.watch) {
+              esbuildCtx = await esbuild.context(esbuildConfig);
+              await esbuildCtx.watch();
+            } else {
+              await esbuild.build(esbuildConfig);
+            }
             context.logger.info(`Successfully built ${name} script.`);
           } catch (error) {
             context.logger.error(`Error building ${name} script:`);
             if (error instanceof Error) {
               context.logger.error(error.toString());
+            }
+            if (esbuildCtx) {
+              await esbuildCtx.dispose();
             }
             yield { success: false, error: (error as Error).message };
             return;
