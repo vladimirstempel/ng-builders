@@ -8,9 +8,9 @@ import { JsonObject } from '@angular-devkit/core';
 import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
-import esbuildPluginTsc from 'esbuild-plugin-tsc';
 import * as path from 'node:path';
-import { BUILD_PLUGIN } from './esbuild.pliugins';
+import { BUILD_PLUGIN } from './esbuild.plugins';
+import esbuildPluginTsc from 'esbuild-plugin-tsc';
 
 // Define the options for our custom builder
 interface Options extends JsonObject {
@@ -20,7 +20,7 @@ interface Options extends JsonObject {
   outputPath: {
     base: string;
     browser?: string;
-  },
+  };
   watch: boolean;
 }
 
@@ -42,9 +42,11 @@ async function* buildExtension(
   const buildTarget = targetFromTargetString(
     context.target.project + ':build:' + context.target.configuration
   );
-  const buildOptions = Object.assign({}, options, (await context.getTargetOptions(
-    buildTarget
-  ))) as unknown as ApplicationBuilderOptions;
+  const buildOptions = Object.assign(
+    {},
+    options,
+    await context.getTargetOptions(buildTarget)
+  ) as unknown as ApplicationBuilderOptions;
 
   // 2. Execute the default Angular application builder (esbuild)
   const buildResults = buildApplication(buildOptions, context);
@@ -86,10 +88,11 @@ async function* buildExtension(
                   watch: options.watch,
                 }),
                 esbuildPluginTsc({
-                  force: true
+                  tsconfigPath: buildOptions.tsConfig,
+                  force: true,
                 }),
-                BUILD_PLUGIN
-              ]
+                BUILD_PLUGIN,
+              ],
             };
             if (options.watch) {
               esbuildCtx = await esbuild.context(esbuildConfig);
