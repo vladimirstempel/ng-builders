@@ -14,6 +14,7 @@ export const BUILD_PLUGIN = (callback: () => { success: boolean }) => ({
       const { success } = callback();
 
       if (!success) {
+        console.log("Build failed. Waiting for rebuild.");
         return;
       }
 
@@ -26,7 +27,7 @@ export const BUILD_PLUGIN = (callback: () => { success: boolean }) => ({
         return;
       }
 
-      if (
+      if (success &&
         result.warnings &&
         Array.isArray(result.warnings) &&
         result.warnings.length >= 1

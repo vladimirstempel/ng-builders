@@ -3,14 +3,14 @@ import {
   BuilderOutput,
   createBuilder,
   targetFromTargetString,
-} from '@angular-devkit/architect';
-import { JsonObject } from '@angular-devkit/core';
-import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
-import * as esbuild from 'esbuild';
-import { copy } from 'esbuild-plugin-copy';
-import * as path from 'node:path';
-import * as ts from 'typescript';
-import { BUILD_PLUGIN } from './esbuild.plugins';
+} from "@angular-devkit/architect";
+import { JsonObject } from "@angular-devkit/core";
+import { ApplicationBuilderOptions, buildApplication } from "@angular/build";
+import * as esbuild from "esbuild";
+import { copy } from "esbuild-plugin-copy";
+import * as path from "node:path";
+import * as ts from "typescript";
+import { BUILD_PLUGIN } from "./esbuild.plugins";
 
 // Define the options for our custom builder
 interface Options extends JsonObject {
@@ -31,7 +31,9 @@ function runTypeChecker(
 ): { success: boolean } {
   const { config, error } = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
   if (error) {
-    context.logger.error(ts.flattenDiagnosticMessageText(error.messageText, '\n'));
+    context.logger.error(
+      ts.flattenDiagnosticMessageText(error.messageText, "\n")
+    );
     return { success: false };
   }
 
@@ -41,8 +43,10 @@ function runTypeChecker(
     path.dirname(tsConfigPath)
   );
   if (parsedCmd.errors.length > 0) {
-    parsedCmd.errors.forEach(diag => {
-        context.logger.error(ts.flattenDiagnosticMessageText(diag.messageText, '\n'));
+    parsedCmd.errors.forEach((diag) => {
+      context.logger.error(
+        ts.flattenDiagnosticMessageText(diag.messageText, "\n")
+      );
     });
     return { success: false };
   }
@@ -53,20 +57,22 @@ function runTypeChecker(
 
   if (diagnostics.length > 0) {
     const formatHost: ts.FormatDiagnosticsHost = {
-      getCanonicalFileName: path => path,
+      getCanonicalFileName: (path) => path,
       getCurrentDirectory: ts.sys.getCurrentDirectory,
-      getNewLine: () => ts.sys.newLine
+      getNewLine: () => ts.sys.newLine,
     };
 
-    const message = ts.formatDiagnosticsWithColorAndContext(diagnostics, formatHost);
+    const message = ts.formatDiagnosticsWithColorAndContext(
+      diagnostics,
+      formatHost
+    );
     context.logger.error(message);
-    context.logger.error('Type checking failed.');
+    context.logger.error("Type checking failed.");
     return { success: false };
   }
 
   return { success: true };
 }
-
 
 export default createBuilder<Options>(buildExtension);
 
@@ -74,17 +80,20 @@ async function* buildExtension(
   options: Options,
   context: BuilderContext
 ): AsyncIterable<BuilderOutput> {
-  context.logger.info('Custom builder is running!');
+  context.logger.info("Custom builder is running!");
 
   if (!context.target) {
-    context.logger.error('Cannot execute the build without a target');
-    yield { success: false, error: 'Cannot execute the build without a target' };
+    context.logger.error("Cannot execute the build without a target");
+    yield {
+      success: false,
+      error: "Cannot execute the build without a target",
+    };
     return;
   }
 
   // 1. Get the main application build options
   const buildTarget = targetFromTargetString(
-    context.target.project + ':build:' + context.target.configuration
+    context.target.project + ":build:" + context.target.configuration
   );
   const buildOptions = Object.assign(
     {},
@@ -101,7 +110,7 @@ async function* buildExtension(
       const outputPath = path.join(
         context.workspaceRoot,
         options.outputPath.base,
-        options.outputPath.browser ?? ''
+        options.outputPath.browser ?? ""
       );
 
       // 4. Build the background and content scripts using esbuild
@@ -114,26 +123,30 @@ async function* buildExtension(
         if (scriptPath) {
           let esbuildCtx: esbuild.BuildContext | null = null;
 
-          if (!options.watch) {
-            context.logger.info(`Performing type checking...`);
-            const scripts = [scriptPath]
-              .filter((s): s is string => !!s)
-              .map(s => path.join(context.workspaceRoot, s));
-
-            runTypeChecker(scripts, buildOptions.tsConfig, context);
-          }
-
           try {
+            if (!options.watch) {
+              context.logger.info(`Performing type checking...`);
+              const scripts = [scriptPath]
+                .filter((s): s is string => !!s)
+                .map((s) => path.join(context.workspaceRoot, s));
+
+              const { success } = runTypeChecker(scripts, buildOptions.tsConfig, context);
+
+              if (!success) {
+                throw new Error("Type checking failed.");
+              }
+            }
+
             const esbuildConfig: esbuild.BuildOptions = {
               entryPoints: [path.join(context.workspaceRoot, scriptPath)],
               bundle: true,
               outfile: path.join(outputPath, `${name}.js`),
-              platform: 'browser',
-              target: 'es2020',
-              format: 'iife',
+              platform: "browser",
+              target: "es2020",
+              format: "iife",
               plugins: [
                 copy({
-                  resolveFrom: 'cwd',
+                  resolveFrom: "cwd",
                   assets: {
                     from: [options.manifest],
                     to: [path.join(outputPath)],
@@ -144,9 +157,13 @@ async function* buildExtension(
                   context.logger.info(`Performing type checking...`);
                   const scripts = [scriptPath]
                     .filter((s): s is string => !!s)
-                    .map(s => path.join(context.workspaceRoot, s));
+                    .map((s) => path.join(context.workspaceRoot, s));
 
-                  return runTypeChecker(scripts, buildOptions.tsConfig, context);
+                  return runTypeChecker(
+                    scripts,
+                    buildOptions.tsConfig,
+                    context
+                  );
                 }),
               ],
             };
