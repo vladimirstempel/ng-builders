@@ -9,8 +9,8 @@ import { ApplicationBuilderOptions, buildApplication } from '@angular/build';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import * as path from 'node:path';
+import * as ts from 'typescript';
 import { BUILD_PLUGIN } from './esbuild.plugins';
-import esbuildPluginTsc from 'esbuild-plugin-tsc';
 
 // Define the options for our custom builder
 interface Options extends JsonObject {
@@ -23,6 +23,50 @@ interface Options extends JsonObject {
   };
   watch: boolean;
 }
+
+function runTypeChecker(
+  extraFilesToCkeck: string[],
+  tsConfigPath: string,
+  context: BuilderContext
+): { success: boolean } {
+  const { config, error } = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
+  if (error) {
+    context.logger.error(ts.flattenDiagnosticMessageText(error.messageText, '\n'));
+    return { success: false };
+  }
+
+  const parsedCmd = ts.parseJsonConfigFileContent(
+    config,
+    ts.sys,
+    path.dirname(tsConfigPath)
+  );
+  if (parsedCmd.errors.length > 0) {
+    parsedCmd.errors.forEach(diag => {
+        context.logger.error(ts.flattenDiagnosticMessageText(diag.messageText, '\n'));
+    });
+    return { success: false };
+  }
+
+  const rootNames = [...parsedCmd.fileNames, ...extraFilesToCkeck];
+  const program = ts.createProgram(rootNames, parsedCmd.options);
+  const diagnostics = ts.getPreEmitDiagnostics(program);
+
+  if (diagnostics.length > 0) {
+    const formatHost: ts.FormatDiagnosticsHost = {
+      getCanonicalFileName: path => path,
+      getCurrentDirectory: ts.sys.getCurrentDirectory,
+      getNewLine: () => ts.sys.newLine
+    };
+
+    const message = ts.formatDiagnosticsWithColorAndContext(diagnostics, formatHost);
+    context.logger.error(message);
+    context.logger.error('Type checking failed.');
+    return { success: false };
+  }
+
+  return { success: true };
+}
+
 
 export default createBuilder<Options>(buildExtension);
 
@@ -70,8 +114,17 @@ async function* buildExtension(
         if (scriptPath) {
           let esbuildCtx: esbuild.BuildContext | null = null;
 
+          if (!options.watch) {
+            context.logger.info(`Performing type checking...`);
+            const scripts = [scriptPath]
+              .filter((s): s is string => !!s)
+              .map(s => path.join(context.workspaceRoot, s));
+
+            runTypeChecker(scripts, buildOptions.tsConfig, context);
+          }
+
           try {
-            const esbuildConfig: esbuild.SameShape<esbuild.BuildOptions, esbuild.BuildOptions> = {
+            const esbuildConfig: esbuild.BuildOptions = {
               entryPoints: [path.join(context.workspaceRoot, scriptPath)],
               bundle: true,
               outfile: path.join(outputPath, `${name}.js`),
@@ -87,11 +140,14 @@ async function* buildExtension(
                   },
                   watch: options.watch,
                 }),
-                esbuildPluginTsc({
-                  tsconfigPath: buildOptions.tsConfig,
-                  force: true,
+                BUILD_PLUGIN(() => {
+                  context.logger.info(`Performing type checking...`);
+                  const scripts = [scriptPath]
+                    .filter((s): s is string => !!s)
+                    .map(s => path.join(context.workspaceRoot, s));
+
+                  return runTypeChecker(scripts, buildOptions.tsConfig, context);
                 }),
-                BUILD_PLUGIN,
               ],
             };
             if (options.watch) {
