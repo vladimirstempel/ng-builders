@@ -1,5 +1,7 @@
 {
-  "$schema": "http://json-schema.org/schema",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Chrome extension builder",
+  "description": "Builds the Angular application and bundles the extension scripts. All options of the '@angular/build:application' builder are also accepted.",
   "type": "object",
   "properties": {
     "watch": {
@@ -9,19 +11,19 @@
     },
     "backgroundScript": {
       "type": "string",
-      "description": "Path to the background script (e.g., src/background.ts)"
+      "description": "Path to the background script, relative to the workspace root (e.g. src/background.ts). The output file is 'background.js'."
     },
     "contentScript": {
       "type": "string",
-      "description": "Path to the content script (e.g., src/content.ts)"
+      "description": "Path to the content script, relative to the workspace root (e.g. src/content.ts). The output file is 'content.js'."
     },
     "manifest": {
       "type": "string",
-      "description": "Path to the manifest (e.g., src/manifest.json)"
+      "description": "Path to the manifest, relative to the workspace root (e.g. src/manifest.json)."
     },
     "outputPath": {
       "type": "object",
-      "description": "Path to the dist folder (e.g., dist/extension)",
+      "description": "Output location of the extension (e.g. { \"base\": \"dist/extension\" }).",
       "properties": {
         "base": {
           "type": "string",
@@ -37,22 +39,17 @@
           "type": "string",
           "pattern": "^[-\\w\\.]*$",
           "default": "server",
-          "description": "The output directory name of your server build within the output path base. Defaults to 'server'."
+          "description": "Passed to the Angular application builder. Not used by the extension scripts."
         },
         "media": {
           "type": "string",
           "pattern": "^[-\\w\\.]+$",
           "default": "media",
-          "description": "The output directory name of your media files within the output browser directory. Defaults to 'media'."
+          "description": "Passed to the Angular application builder. Not used by the extension scripts."
         }
       },
       "required": ["base"]
     }
   },
-  "required": [
-    "backgroundScript",
-    "contentScript",
-    "manifest",
-    "outputPath"
-  ]
+  "required": ["manifest", "outputPath"]
 }

@@ -1,33 +1,37 @@
-# @stempelv/ng-builders: Angular Builder for Chrome Extensions
+# @stempelv/ng-builders
 
-[![npm version](https://badge.fury.io/js/%40stempelv%2Fng-builders.svg)](https://badge.fury.io/js/%40stempelv%2Fng-builders)
+[![npm version](https://img.shields.io/npm/v/@stempelv/ng-builders.svg)](https://www.npmjs.com/package/@stempelv/ng-builders)
 
-This repository contains a custom Angular CLI builder (`@stempelv/ng-builders`) for building Chrome Extensions.
+Angular CLI builder for Chrome extensions (Manifest V3).
 
-The builder streamlines the development of Chrome extensions by:
-1.  Executing the standard Angular application build (`@angular-devkit/build-angular:browser`) to compile the main application, which can be used as a popup or options page.
-2.  Using `esbuild` to compile and bundle browser-specific scripts, such as `background.ts` and `content.ts`, into the final output directory.
+The `extension` builder:
+
+1. Runs the standard Angular application builder (`@angular/build:application`). Use the app as a popup, options page or side panel.
+2. Type checks and bundles the background and content scripts with esbuild into the same output directory.
+3. Copies the extension manifest into the output directory.
+
+## Requirements
+
+| Package                     | Version              |
+| --------------------------- | -------------------- |
+| `@angular/build`            | 20.x, 21.x or 22.x   |
+| `@angular-devkit/architect` | matches `@angular/build` |
+| `typescript`                | the version that your Angular version supports |
+| Node.js                     | the version that your Angular version supports |
+
+These are peer dependencies. An Angular CLI workspace already contains them.
 
 ## Installation
 
-To install the builder, run the following command in your Angular project:
-
 ```bash
-npm install @stempelv/ng-builders --save-dev
-```
-or
-```bash
-pnpm add @stempelv/ng-builders --save-dev
+npm install --save-dev @stempelv/ng-builders
 ```
 
 ## Usage
 
-To use the builder, you need to configure it in your `angular.json` file. Replace the default `build` builder with the custom `extension` builder.
-
-Here is an example configuration:
+Replace the builder of the `build` target in `angular.json`:
 
 ```json
-// In angular.json
 "architect": {
   "build": {
     "builder": "@stempelv/ng-builders:extension",
@@ -38,63 +42,83 @@ Here is an example configuration:
       "outputPath": {
         "base": "dist/my-extension"
       },
-      "tsConfig": "tsconfig.app.json",
-      "assets": [
-        "src/favicon.ico",
-        "src/assets"
-      ],
+      "browser": "src/main.ts",
       "index": "src/index.html",
-      "main": "src/main.ts",
-      "polyfills": "src/polyfills.ts"
+      "tsConfig": "tsconfig.app.json",
+      "assets": [{ "glob": "**/*", "input": "public" }],
+      "styles": ["src/styles.css"]
     },
     "configurations": {
       "production": {
-        "fileReplacements": [
-          {
-            "replace": "src/environments/environment.ts",
-            "with": "src/environments/environment.prod.ts"
-          }
-        ],
-        "optimization": true,
-        "outputHashing": "all",
-        "sourceMap": false,
-        "extractCss": true,
-        "namedChunks": false,
-        "extractLicenses": true,
-        "vendorChunk": false,
-        "buildOptimizer": true,
-        "budgets": [
-          {
-            "type": "initial",
-            "maximumWarning": "2mb",
-            "maximumError": "5mb"
-          }
-        ]
+        "outputHashing": "all"
+      },
+      "development": {
+        "optimization": false,
+        "sourceMap": true
       }
-    }
-  },
-  // ... other architect targets
+    },
+    "defaultConfiguration": "production"
+  }
 }
 ```
 
-Then, you can build your extension by running:
+Then build the extension:
 
 ```bash
 ng build
 ```
 
-## Builder Options
+Rebuild on file changes:
 
-The following options are available for the `extension` builder:
+```bash
+ng build --watch --configuration development
+```
 
-| Option             | Type      | Description                                                                                              |
-| ------------------ | --------- | -------------------------------------------------------------------------------------------------------- |
-| `watch`            | `boolean` | Rebuild on file changes. Defaults to `false`.                                                            |
-| `backgroundScript` | `string`  | **Required.** Path to the background script (e.g., `src/background.ts`).                                     |
-| `contentScript`    | `string`  | **Required.** Path to the content script (e.g., `src/content.ts`).                                       |
-| `manifest`         | `string`  | **Required.** Path to the manifest file (e.g., `src/manifest.json`).                                        |
-| `outputPath`       | `object`  | **Required.** An object defining the output paths.                                                       |
-| `outputPath.base`  | `string`  | **Required.** The base output path relative to the workspace root (e.g., `dist/my-extension`).              |
-| `outputPath.browser`| `string` | The output directory name for the browser build within the base path. Defaults to `browser`.             |
+Load the `dist/my-extension/browser` directory in `chrome://extensions` with **Load unpacked**.
 
-Any other options valid for the standard `@angular/build:application` builder (like `tsConfig`, `assets`, `styles`, etc.) can also be used.
+The output contains `background.js` and `content.js`. Refer to these names in `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content.js"] }]
+}
+```
+
+### Type checking
+
+The scripts are type checked with the compiler options of `tsConfig`. To use the `chrome` API, install `@types/chrome` and add it to `types` in `tsconfig.app.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["chrome"]
+  }
+}
+```
+
+### Use as a separate target
+
+You can also add the builder as a different target (for example `extension`). Then the builder uses the options of the `build` target as defaults, and its own options have priority.
+
+## Options
+
+| Option               | Type      | Description                                                                                       |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------------- |
+| `manifest`           | `string`  | **Required.** Path to the manifest, relative to the workspace root.                                |
+| `outputPath.base`    | `string`  | **Required.** Output path, relative to the workspace root.                                         |
+| `outputPath.browser` | `string`  | Name of the browser output directory in `outputPath.base`. Default: `browser`.                    |
+| `backgroundScript`   | `string`  | Path to the background script. Output: `background.js`.                                          |
+| `contentScript`      | `string`  | Path to the content script. Output: `content.js`.                                                 |
+| `watch`              | `boolean` | Rebuild on file changes. Default: `false`.                                                        |
+
+All options of [`@angular/build:application`](https://angular.dev/reference/configs/workspace-config) are also accepted. These options also apply to the scripts:
+
+- `optimization`: minifies the scripts (`optimization.scripts` when it is an object).
+- `sourceMap`: writes source maps for the scripts (`sourceMap.scripts` and `sourceMap.hidden` when it is an object).
+- `tsConfig`: used for type checking of the scripts.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

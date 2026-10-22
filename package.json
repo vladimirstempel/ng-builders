@@ -1,30 +1,55 @@
 {
   "name": "@stempelv/ng-builders",
-  "version": "1.0.27",
-  "description": "Custom builder for Chrome extension",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Angular CLI builder for Chrome extensions: builds the Angular app and bundles background and content scripts with esbuild.",
+  "keywords": [
+    "angular",
+    "angular-cli",
+    "builder",
+    "architect",
+    "chrome-extension",
+    "browser-extension",
+    "esbuild"
+  ],
+  "author": "Vladimir Stempel",
+  "license": "MIT",
+  "homepage": "https://github.com/vladimirstempel/ng-builders#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vladimirstempel/ng-builders.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vladimirstempel/ng-builders/issues"
+  },
   "builders": "builders.json",
   "main": "./extension-builder.js",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
   "scripts": {
-    "copy": "copyfiles package.json dist && copyfiles builders.json dist && copyfiles tsconfig.json dist && copyfiles README.md dist",
     "clean": "rimraf dist",
-    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
     "prebuild": "npm run clean",
-    "postbuild": "npm run copy",
-    "publish:package": "npm version patch && npm run build && cd dist && npm publish --access public"
+    "postbuild": "node scripts/prepare-dist.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "publish:package": "npm run test && cd dist && npm publish --access public"
   },
   "dependencies": {
-    "@angular-devkit/architect": "^0.2003.3",
-    "@angular-devkit/core": "^20.3.3",
-    "@angular/build": "^20.3.3",
-    "esbuild": "^0.25.10",
-    "esbuild-plugin-copy": "^2.1.1",
-    "typescript": "^5.9.2"
+    "esbuild": "^0.28.2"
+  },
+  "peerDependencies": {
+    "@angular-devkit/architect": ">=0.2000.0 <0.2300.0",
+    "@angular/build": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "typescript": ">=5.8 <6.1"
   },
   "devDependencies": {
+    "@angular-devkit/architect": "^0.2003.3",
+    "@angular/build": "^20.3.3",
     "@types/node": "^24.5.2",
-    "copyfiles": "^2.4.1",
     "rimraf": "^6.0.1",
-    "tslib": "^2.3.0"
+    "typescript": "~5.9.2"
   },
   "publishConfig": {
     "access": "public"

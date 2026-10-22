@@ -2,192 +2,106 @@ import {
   BuilderContext,
   BuilderOutput,
   createBuilder,
-  targetFromTargetString,
+  Target,
 } from "@angular-devkit/architect";
-import { JsonObject } from "@angular-devkit/core";
-import { ApplicationBuilderOptions, buildApplication } from "@angular/build";
-import * as esbuild from "esbuild";
-import { copy } from "esbuild-plugin-copy";
+import { buildApplication } from "@angular/build";
 import * as path from "node:path";
-import * as ts from "typescript";
-import { BUILD_PLUGIN } from "./esbuild.plugins";
+import {
+  ExtensionBuilderOptions,
+  getScriptSourceMap,
+  isScriptOptimizationEnabled,
+  toApplicationOptions,
+} from "./options";
+import { createScriptsBuilder, ScriptsBuilderConfig } from "./scripts-builder";
 
-// Define the options for our custom builder
-interface Options extends JsonObject {
-  backgroundScript: string;
-  contentScript: string;
-  manifest: string;
-  outputPath: {
-    base: string;
-    browser?: string;
-  };
-  watch: boolean;
-}
+export default createBuilder<ExtensionBuilderOptions>(buildExtension);
 
-function runTypeChecker(
-  extraFilesToCkeck: string[],
-  tsConfigPath: string,
-  context: BuilderContext
-): { success: boolean } {
-  const { config, error } = ts.readConfigFile(tsConfigPath, ts.sys.readFile);
-  if (error) {
-    context.logger.error(
-      ts.flattenDiagnosticMessageText(error.messageText, "\n")
-    );
-    return { success: false };
-  }
-
-  const parsedCmd = ts.parseJsonConfigFileContent(
-    config,
-    ts.sys,
-    path.dirname(tsConfigPath)
-  );
-  if (parsedCmd.errors.length > 0) {
-    parsedCmd.errors.forEach((diag) => {
-      context.logger.error(
-        ts.flattenDiagnosticMessageText(diag.messageText, "\n")
-      );
-    });
-    return { success: false };
-  }
-
-  const rootNames = [...parsedCmd.fileNames, ...extraFilesToCkeck];
-  const program = ts.createProgram(rootNames, parsedCmd.options);
-  const diagnostics = ts.getPreEmitDiagnostics(program);
-
-  if (diagnostics.length > 0) {
-    const formatHost: ts.FormatDiagnosticsHost = {
-      getCanonicalFileName: (path) => path,
-      getCurrentDirectory: ts.sys.getCurrentDirectory,
-      getNewLine: () => ts.sys.newLine,
-    };
-
-    const message = ts.formatDiagnosticsWithColorAndContext(
-      diagnostics,
-      formatHost
-    );
-    context.logger.error(message);
-    context.logger.error("Type checking failed.");
-    return { success: false };
-  }
-
-  return { success: true };
-}
-
-export default createBuilder<Options>(buildExtension);
-
-async function* buildExtension(
-  options: Options,
+export async function* buildExtension(
+  options: ExtensionBuilderOptions,
   context: BuilderContext
 ): AsyncIterable<BuilderOutput> {
-  context.logger.info("Custom builder is running!");
-
   if (!context.target) {
-    context.logger.error("Cannot execute the build without a target");
-    yield {
-      success: false,
-      error: "Cannot execute the build without a target",
-    };
+    yield { success: false, error: "Cannot execute the build without a target." };
     return;
   }
 
-  // 1. Get the main application build options
-  const buildTarget = targetFromTargetString(
-    context.target.project + ":build:" + context.target.configuration
+  const mergedOptions = await mergeWithBuildTargetOptions(options, context, context.target);
+  if (!mergedOptions.tsConfig) {
+    yield { success: false, error: "The 'tsConfig' option is required." };
+    return;
+  }
+
+  const scriptsBuilder = createScriptsBuilder(
+    toScriptsBuilderConfig(mergedOptions, mergedOptions.tsConfig, context)
   );
-  const buildOptions = Object.assign(
-    {},
-    options,
-    await context.getTargetOptions(buildTarget)
-  ) as unknown as ApplicationBuilderOptions;
+  context.addTeardown(() => scriptsBuilder.dispose());
 
-  // 2. Execute the default Angular application builder (esbuild)
-  const buildResults = buildApplication(buildOptions, context);
+  let watching = false;
+  for await (const output of buildApplication(toApplicationOptions(mergedOptions), context)) {
+    if (!output.success) {
+      yield output;
+      continue;
+    }
 
-  for await (const output of buildResults) {
-    if (output.success) {
-      // 3. Determine the output path
-      const outputPath = path.join(
-        context.workspaceRoot,
-        options.outputPath.base,
-        options.outputPath.browser ?? ""
-      );
+    if (!mergedOptions.watch) {
+      const result = await scriptsBuilder.build();
+      yield result.success ? output : { ...output, ...result };
+      continue;
+    }
 
-      // 4. Build the background and content scripts using esbuild
-      const scriptsToBuild: { [key: string]: string | undefined } = {
-        background: options.backgroundScript,
-        content: options.contentScript,
-      };
-
-      for (const [name, scriptPath] of Object.entries(scriptsToBuild)) {
-        if (scriptPath) {
-          let esbuildCtx: esbuild.BuildContext | null = null;
-
-          try {
-            if (!options.watch) {
-              context.logger.info(`Performing type checking...`);
-              const scripts = [scriptPath]
-                .filter((s): s is string => !!s)
-                .map((s) => path.join(context.workspaceRoot, s));
-
-              const { success } = runTypeChecker(scripts, buildOptions.tsConfig, context);
-
-              if (!success) {
-                throw new Error("Type checking failed.");
-              }
-            }
-
-            const esbuildConfig: esbuild.BuildOptions = {
-              entryPoints: [path.join(context.workspaceRoot, scriptPath)],
-              bundle: true,
-              outfile: path.join(outputPath, `${name}.js`),
-              platform: "browser",
-              target: "es2020",
-              format: "iife",
-              plugins: [
-                copy({
-                  resolveFrom: "cwd",
-                  assets: {
-                    from: [options.manifest],
-                    to: [path.join(outputPath)],
-                  },
-                  watch: options.watch,
-                }),
-                BUILD_PLUGIN(() => {
-                  context.logger.info(`Performing type checking...`);
-                  const scripts = [scriptPath]
-                    .filter((s): s is string => !!s)
-                    .map((s) => path.join(context.workspaceRoot, s));
-
-                  return runTypeChecker(
-                    scripts,
-                    buildOptions.tsConfig,
-                    context
-                  );
-                }),
-              ],
-            };
-            if (options.watch) {
-              esbuildCtx = await esbuild.context(esbuildConfig);
-              await esbuildCtx.watch();
-            } else {
-              await esbuild.build(esbuildConfig);
-            }
-            context.logger.info(`Successfully built ${name} script.`);
-          } catch (error) {
-            context.logger.error(`Error building ${name} script:`);
-            if (error instanceof Error) {
-              context.logger.error(error.toString());
-            }
-            if (esbuildCtx) {
-              await esbuildCtx.dispose();
-            }
-            yield { success: false, error: (error as Error).message };
-            return;
-          }
-        }
-      }
+    // In watch mode esbuild rebuilds the scripts on its own. Start it only one time.
+    if (!watching) {
+      watching = true;
+      await scriptsBuilder.watch();
     }
     yield output;
   }
+}
+
+function toScriptsBuilderConfig(
+  options: ExtensionBuilderOptions,
+  tsConfig: string,
+  context: BuilderContext
+): ScriptsBuilderConfig {
+  const workspacePath = (file: string) => path.resolve(context.workspaceRoot, file);
+  const { base, browser = "" } = options.outputPath;
+
+  const entryPoints: Record<string, string> = {};
+  if (options.backgroundScript) {
+    entryPoints["background"] = workspacePath(options.backgroundScript);
+  }
+  if (options.contentScript) {
+    entryPoints["content"] = workspacePath(options.contentScript);
+  }
+
+  return {
+    entryPoints,
+    manifestPath: workspacePath(options.manifest),
+    outputPath: workspacePath(path.join(base, browser)),
+    tsConfigPath: workspacePath(tsConfig),
+    minify: isScriptOptimizationEnabled(options.optimization),
+    sourcemap: getScriptSourceMap(options.sourceMap),
+    logger: context.logger,
+  };
+}
+
+/**
+ * When this builder is not the `build` target of the project, it uses the options
+ * of the `build` target as defaults. The options of this builder have priority.
+ */
+async function mergeWithBuildTargetOptions(
+  options: ExtensionBuilderOptions,
+  context: BuilderContext,
+  target: Target
+): Promise<ExtensionBuilderOptions> {
+  if (target.target === "build") {
+    return options;
+  }
+
+  const buildTarget: Target = { project: target.project, target: "build" };
+  if (target.configuration) {
+    buildTarget.configuration = target.configuration;
+  }
+  const buildOptions = await context.getTargetOptions(buildTarget);
+  return { ...buildOptions, ...options } as ExtensionBuilderOptions;
 }
