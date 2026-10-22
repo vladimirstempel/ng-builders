@@ -1,2 +1,14 @@
 node_modules
 dist
+*.tgz
+
+# AI tools: skills, settings, agent instructions
+.agents/
+.claude/
+.gemini/
+.cursor/
+.codex/
+GEMINI.md
+CLAUDE.md
+AGENTS.md
+skills-lock.json
