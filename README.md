@@ -1,6 +1,7 @@
 # @stempelv/ng-builders
 
 [![npm version](https://img.shields.io/npm/v/@stempelv/ng-builders.svg)](https://www.npmjs.com/package/@stempelv/ng-builders)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/stempelv)
 
 Angular CLI builder for Chrome extensions (Manifest V3).
 
@@ -118,10 +119,6 @@ All options of [`@angular/build:application`](https://angular.dev/reference/conf
 - `optimization`: minifies the scripts (`optimization.scripts` when it is an object).
 - `sourceMap`: writes source maps for the scripts (`sourceMap.scripts` and `sourceMap.hidden` when it is an object).
 - `tsConfig`: used for type checking of the scripts.
-
-## Support
-
-ng-builders is free. If it saves you time, you can [buy me a coffee](https://buymeacoffee.com/stempelv).
 
 ## License
 
