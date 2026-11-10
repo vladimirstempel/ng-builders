@@ -119,6 +119,10 @@ All options of [`@angular/build:application`](https://angular.dev/reference/conf
 - `sourceMap`: writes source maps for the scripts (`sourceMap.scripts` and `sourceMap.hidden` when it is an object).
 - `tsConfig`: used for type checking of the scripts.
 
+## Support
+
+ng-builders is free. If it saves you time, you can [buy me a coffee](https://buymeacoffee.com/stempelv).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
